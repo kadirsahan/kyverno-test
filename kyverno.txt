@@ -1,0 +1,77 @@
+# install kyverno
+helm repo add kyverno https://kyverno.github.io/kyverno/
+
+helm repo update
+
+helm install kyverno kyverno/kyverno --namespace kyverno --create-namespace
+
+        WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/vagrant/.kube/config
+        NAME: kyverno
+        LAST DEPLOYED: Mon Aug  7 10:57:31 2023
+        NAMESPACE: kyverno
+        STATUS: deployed
+        REVISION: 1
+        NOTES:
+        Chart version: 3.0.4
+        Kyverno version: v1.10.2
+
+        Thank you for installing kyverno! Your release is named kyverno.
+
+        The following components have been installed in your cluster:
+        - CRDs
+        - Admission controller
+        - Reports controller
+        - Cleanup controller
+        - Background controller
+
+vagrant@k8s-m-1:~$ kubectl get pods -n kyverno
+NAME                                             READY   STATUS    RESTARTS   AGE
+kyverno-admission-controller-558794f747-8lg64    1/1     Running   0          104s
+kyverno-background-controller-84c85f9656-k9725   1/1     Running   0          104s
+kyverno-cleanup-controller-565d6cfd84-5v9dn      1/1     Running   0          104s
+kyverno-reports-controller-7866f89698-dvnpv      1/1     Running   0          104s
+
+#  show all resources
+kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -A
+
+# apply resource policy
+https://raw.githubusercontent.com/kyverno/policies/main/other/a/add-default-resources/add-default-resources.yaml
+
+vagrant@k8s-m-1:~$ kubectl apply -f https://raw.githubusercontent.com/kyverno/policies/main/other/a/add-default-resources/add-default-resources.yaml
+clusterpolicy.kyverno.io/add-default-resources created
+
+vagrant@k8s-m-1:~$ kubectl get ClusterPolicy
+NAME                    BACKGROUND   VALIDATE ACTION   READY   AGE   MESSAGE
+add-default-resources   false        Audit             True    26s   Ready
+
+# try to create a nginx deployment
+kubectl apply -f https://raw.githubusercontent.com/kadirsahan/kustomize-test/main/base/deployment.yaml
+
+vagrant@k8s-m-1:~$ kubectl apply -f https://raw.githubusercontent.com/kadirsahan/kustomize-test/main/base/deployment.yaml
+deployment.apps/nginx-deployment created
+vagrant@k8s-m-1:~$ kubectl get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-deployment-dd5568887-c7nsr   1/1     Running   0          11s
+nginx-deployment-dd5568887-w68lg   1/1     Running   0          11s
+
+
+kubectl describe pods nginx-deployment-dd5568887-c7nsr
+
+    Requests:
+      cpu:        100m
+      memory:     100Mi
+
+
+
+#  create a new namespace 
+kubectl create ns test-np-ns
+
+# apply network policy(deny all) for the newly created namespaces(all)
+
+➜  ~ kubectl apply -f https://raw.githubusercontent.com/kyverno/policies/main/best-practices/add-network-policy/add-network-policy.yaml
+clusterpolicy.kyverno.io/add-networkpolicy created
+
+kubectl apply -f nginx.yaml -n test-np-ns
+
+# try to access these new nginx pod in the namespace test-np-ns.
+
